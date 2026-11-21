@@ -140,7 +140,3 @@ GitHub Actions runs both on every push.
 - [ ] User accounts and saved progress across devices
 - [ ] Spaced repetition for mastered concepts
 - [ ] AI-generated question variants, validated by code execution
-
-## Author
-
-Built by Jayatu ([@Incarnate-Jayatu](https://github.com/Incarnate-Jayatu)).
