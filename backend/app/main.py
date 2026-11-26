@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +19,7 @@ async def lifespan(_):
     yield
 
 app = FastAPI(title="MindMate", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", *filter(None, os.getenv("CORS_ORIGINS", "").split(","))], allow_methods=["*"], allow_headers=["*"])
 
 class UserIn(BaseModel):
     name: str
@@ -150,3 +151,7 @@ def insights(user_id: int, db: Session = Depends(get_db)):
               "count": n, "last_seen": str(ts)} for mid, n, ts in rows]
     items.sort(key=lambda x: -x["count"])
     return {"recommended": rec, "misconceptions": items}
+
+@app.get("/health")
+def health():
+    return {"ok": True}

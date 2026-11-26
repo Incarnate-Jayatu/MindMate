@@ -1,6 +1,6 @@
 # MindMate: Your Personal AI Programming Tutor
 
-[![CI](https://github.com/Incarnate-Jayatu/Mindmate/actions/workflows/ci.yml/badge.svg)](https://github.com/Incarnate-Jayatu/Mindmate/actions/workflows/ci.yml)
+[![CI](https://github.com/Incarnate-Jayatu/MindMate/actions/workflows/ci.yml/badge.svg)](https://github.com/Incarnate-Jayatu/MindMate/actions/workflows/ci.yml)
 
 MindMate helps college students learn C++ and Data Structures & Algorithms by finding **why** they get things wrong, not just whether they did. Instead of handing everyone the same content, it diagnoses each learner's misconceptions, teaches around them, and checks that the understanding is real.
 
@@ -32,7 +32,7 @@ flowchart LR
 - **Frontend:** React, Vite, Tailwind CSS
 - **Backend:** Python, FastAPI, SQLAlchemy
 - **Database:** SQLite locally, PostgreSQL (e.g. Supabase) in production
-- **AI (optional):** Anthropic Claude API for personalized explanations
+- **AI (optional):** Groq (Llama 3.3) or Anthropic Claude for personalized explanations
 
 ## Project structure
 
@@ -79,19 +79,22 @@ The database file and starter questions are created automatically on first run.
 
 Without a key, wrong answers get a simple built-in explanation. For AI explanations:
 
-1. Create an API key at [console.anthropic.com](https://console.anthropic.com).
-2. Copy `backend/.env.example` to `backend/.env` and set `ANTHROPIC_API_KEY=your-key`.
+1. Create a free API key at [console.groq.com/keys](https://console.groq.com/keys).
+2. Copy `backend/.env.example` to `backend/.env` and set `GROQ_API_KEY=your-key`.
 3. Restart the backend.
 
-Never commit `.env` (it is already in `.gitignore`).
+Anthropic also works: set `ANTHROPIC_API_KEY` instead. If both are set, Groq is used.
+
+**Keep keys secret.** Never put a key in code or commit `.env` (it is already in `.gitignore`). On a host like Render, add the key as an environment variable in the dashboard. CI fails the build if a key-like string is found in the repo.
 
 ## Configuration
 
 | Variable | Where | Purpose |
 |---|---|---|
 | `DATABASE_URL` | backend | Database address. Defaults to local SQLite. Postgres URLs work as given. |
-| `ANTHROPIC_API_KEY` | backend | Enables AI explanations (optional). |
-| `ANTHROPIC_MODEL` | backend | Model override (default `claude-haiku-5-5`). |
+| `GROQ_API_KEY` | backend | Enables AI explanations via Groq (optional). |
+| `GROQ_MODEL` | backend | Model override (default `llama-3.3-70b-versatile`). |
+| `ANTHROPIC_API_KEY` | backend | Alternative AI provider (optional). |
 | `CORS_ORIGINS` | backend | Comma-separated frontend addresses allowed to call the API in production. |
 | `VITE_API_URL` | frontend | Backend address (default `http://127.0.0.1:8000`). Set at build time. |
 
@@ -130,7 +133,7 @@ GitHub Actions runs both on every push.
 ## Deployment
 
 - **Database:** Supabase (use the *Session pooler* connection string).
-- **Backend:** Render web service. Root directory `backend`, build `pip install -r requirements.txt`, start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Set `DATABASE_URL`, and optionally `ANTHROPIC_API_KEY`.
+- **Backend:** Render web service. Root directory `backend`, build `pip install -r requirements.txt`, start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Set `DATABASE_URL`, and optionally `GROQ_API_KEY`.
 - **Frontend:** Vercel. Root directory `frontend`, and set `VITE_API_URL` to the Render address. Then add the Vercel address to `CORS_ORIGINS` on Render.
 
 ## Roadmap
@@ -140,3 +143,7 @@ GitHub Actions runs both on every push.
 - [ ] User accounts and saved progress across devices
 - [ ] Spaced repetition for mastered concepts
 - [ ] AI-generated question variants, validated by code execution
+
+## Author
+
+Built by Jayatu ([@Incarnate-Jayatu](https://github.com/Incarnate-Jayatu)).
