@@ -25,20 +25,34 @@ def status():
     """Which AI provider is active (name only, never the key)."""
     return {"provider": _provider()}
 
+GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
+GROQ_BACKUP_MODEL = "openai/gpt-oss-20b"  # tried if the main model is retired (HTTP 404)
+
 def _call_groq(system: str, user: str) -> str:
-    r = httpx.post(
-        GROQ_URL,
-        headers={"Authorization": f"Bearer {os.environ['GROQ_API_KEY']}", "User-Agent": "MindMate/1.0"},
-        json={
-            "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "max_tokens": 400,
-            "temperature": 0.4,
-        },
-        timeout=20,
-    )
-    r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"].strip()
+    models = list(dict.fromkeys([os.getenv("GROQ_MODEL") or GROQ_DEFAULT_MODEL, GROQ_BACKUP_MODEL]))
+    last = None
+    for model in models:
+        r = httpx.post(
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {os.environ['GROQ_API_KEY']}", "User-Agent": "MindMate/1.0"},
+            json={
+                "model": model,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "max_completion_tokens": 1024,
+                "reasoning_effort": "low",
+                "temperature": 0.4,
+            },
+            timeout=30,
+        )
+        if r.status_code == 404:
+            last = r
+            continue
+        r.raise_for_status()
+        text = (r.json()["choices"][0]["message"].get("content") or "").strip()
+        if not text:
+            raise ValueError("empty AI reply")
+        return text
+    last.raise_for_status()
 
 def _call_anthropic(system: str, user: str) -> str:
     from anthropic import Anthropic
