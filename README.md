@@ -9,8 +9,9 @@ flowchart LR
     A[Assess] --> B[Identify misconception]
     B --> C[Teach]
     C --> D[Practice]
-    D --> E[Verify mastery]
+    D --> E{Mastery verified?}
     E -->|not yet| B
+    E -->|yes| F[Next topic]
 ```
 
 ## Features
