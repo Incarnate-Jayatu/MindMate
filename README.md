@@ -148,6 +148,6 @@ GitHub Actions runs both on every push.
 - [ ] AI-generated question variants, validated by code execution
 
 ## Author
-
  - Jayatu ([@Incarnate-Jayatu](https://github.com/Incarnate-Jayatu)).
  - Manali ([@Manali0128](https://github.com/Manali0128)).
+ - Asmi ([@asmideshpande307-commits]([https://github.com/Manali0128](https://github.com/asmideshpande307-commits))).
