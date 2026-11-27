@@ -13,6 +13,7 @@ flowchart LR
     E -->|not yet| B
     E -->|yes| F[Next topic]
 ```
+---
 🌐 Live Website
 
 Explore the interactive website here:
