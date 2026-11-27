@@ -135,7 +135,7 @@ export default function App() {
         <section className="grid items-start gap-12 pt-4 md:grid-cols-[1.1fr_0.9fr]">
           <div>
             <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-              Learn C++ by fixing the mistakes you actually make.
+              Learn DSA in C++ by fixing the mistakes you actually make.
             </h1>
             <p className="mt-6 max-w-md text-lg leading-relaxed text-pencil">
               Take a short check with one question per topic. Each wrong answer shows what you probably misunderstood, then explains it.
