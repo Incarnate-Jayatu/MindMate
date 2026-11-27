@@ -148,4 +148,5 @@ GitHub Actions runs both on every push.
 
 ## Author
 
-Built by Jayatu ([@Incarnate-Jayatu](https://github.com/Incarnate-Jayatu)).
+ - Jayatu ([@Incarnate-Jayatu](https://github.com/Incarnate-Jayatu)).
+ - Manali ([@Manali0128](https://github.com/Manali0128)).
