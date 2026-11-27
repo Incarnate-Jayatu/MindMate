@@ -16,8 +16,7 @@ flowchart LR
 ---
 🌐 Live Website
 
-Explore the interactive website here:
-🔗 https://mind-mate-omega.vercel.app/
+Explore the Interactive Project here:  🔗 https://mind-mate-omega.vercel.app/
 
 ---
 
