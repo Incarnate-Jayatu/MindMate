@@ -115,9 +115,13 @@ def tutor_explain(body: ExplainIn, db: Session = Depends(get_db)):
     m = db.query(Mastery).filter_by(user_id=body.user_id, concept_id=q.concept_id).first()
     level = "beginner" if (not m or m.score < 0.5) else "intermediate"
     concept = db.get(Concept, q.concept_id)
-    text, source = tutor.explain(concept.name, q.prompt, opt["text"], correct["text"],
+    text, source, note = tutor.explain(concept.name, q.prompt, opt["text"], correct["text"],
                                  misc.description if misc else None, level)
-    return {"explanation": text, "source": source}
+    return {"explanation": text, "source": source, "note": note}
+
+@app.get("/tutor/status")
+def tutor_status():
+    return tutor.status()
 
 @app.get("/practice/next")
 def practice_next(user_id: int, concept_id: str | None = None, db: Session = Depends(get_db)):

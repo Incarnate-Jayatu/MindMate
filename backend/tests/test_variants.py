@@ -15,7 +15,7 @@ def wrong(qid):
         return next(o["key"] for o in q.options if o["key"] != q.answer_key)
 
 def test_every_template_is_well_formed():
-    assert len(variants.TEMPLATES) == 9
+    assert len(variants.TEMPLATES) == 21
     for (concept, diff) in variants.TEMPLATES:
         for seed in range(200):
             q, cpp, correct = variants.make(concept, diff, random.Random(seed))

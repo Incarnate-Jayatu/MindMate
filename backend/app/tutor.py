@@ -1,5 +1,8 @@
+import logging
 import os
 import httpx
+
+log = logging.getLogger("mindmate.tutor")
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -17,6 +20,10 @@ def _provider():
     if os.getenv("ANTHROPIC_API_KEY"):
         return "anthropic"
     return None
+
+def status():
+    """Which AI provider is active (name only, never the key)."""
+    return {"provider": _provider()}
 
 def _call_groq(system: str, user: str) -> str:
     r = httpx.post(
@@ -49,15 +56,19 @@ def _fallback(correct_text, misconception_desc):
     return f"The correct answer is: {correct_text}.{why} Re-read the code line by line and trace the values by hand."
 
 def explain(concept, question, chosen_text, correct_text, misconception_desc, level):
-    """Returns (text, source) where source is 'ai' or 'fallback'."""
+    """Returns (text, source, note). source is 'ai' or 'fallback'; note says why the fallback was used."""
     if not _provider():
-        return _fallback(correct_text, misconception_desc), "fallback"
+        return _fallback(correct_text, misconception_desc), "fallback", "No AI key is set on the server"
     prompt = (
         f"Concept: {concept}\nStudent level: {level}\nQuestion: {question}\n"
         f"Student chose: {chosen_text}\nCorrect answer: {correct_text}\n"
         f"Diagnosed misconception: {misconception_desc or 'unknown'}"
     )
     try:
-        return _call_llm(SYSTEM, prompt), "ai"
-    except Exception:
-        return _fallback(correct_text, misconception_desc), "fallback"
+        return _call_llm(SYSTEM, prompt), "ai", None
+    except httpx.HTTPStatusError as e:
+        note = f"AI service returned HTTP {e.response.status_code}"
+    except Exception as e:
+        note = f"AI call failed ({type(e).__name__})"
+    log.warning("AI tutor fallback: %s", note)
+    return _fallback(correct_text, misconception_desc), "fallback", note

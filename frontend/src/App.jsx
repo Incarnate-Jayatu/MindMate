@@ -136,7 +136,7 @@ export default function App() {
       {stage === "start" && (
         <Card>
           <p className="mb-4 text-slate-600">
-            A quick 3-question check of your C++ basics. Wrong answers get a personal explanation.
+            A short check of your C++ basics, one question per topic: arrays, loops, recursion, strings, stacks, queues and linked lists. Wrong answers get a personal explanation.
           </p>
           <input
             className="mb-4 w-full rounded-xl border border-slate-300 px-4 py-2"
@@ -198,7 +198,7 @@ export default function App() {
                 <div className="rounded-xl bg-indigo-50 p-4 text-sm text-slate-800">
                   <p className="whitespace-pre-wrap">{expl.explanation}</p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {expl.source === "ai" ? "AI tutor" : "Basic explanation (add an API key for the AI tutor)"}
+                    {expl.source === "ai" ? "AI tutor" : `Basic explanation${expl.note ? ` (${expl.note})` : ""}`}
                   </p>
                 </div>
               )}

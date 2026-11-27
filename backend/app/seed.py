@@ -106,11 +106,126 @@ QUESTIONS += [
        [("A", "21", "rec-order"), ("B", "2112", None), ("C", "12", "rec-order"), ("D", "1221", "rec-order")], "B"),
 ]
 
+
+# ---- Part 7: strings, stacks, queues, linked lists ----
+CONCEPTS += [
+    ("strings", "Strings", ["arrays"]),
+    ("stacks", "Stacks", ["arrays"]),
+    ("queues", "Queues", ["stacks"]),
+    ("linkedlist", "Linked Lists", ["arrays"]),
+]
+
+MISCONCEPTIONS += [
+    ("str-off-by-one", "strings", "Counts characters from 1, or treats size() as the last valid index"),
+    ("str-substr-args", "strings", "Thinks substr(start, length) takes an end position instead of a length"),
+    ("str-char-arith", "strings", "Forgets that arithmetic on a char produces an int, not a char"),
+    ("str-copy-shares", "strings", "Thinks copying a string shares the text, so editing the copy changes the original"),
+    ("stack-fifo", "stacks", "Thinks a stack removes the oldest element first (like a queue)"),
+    ("stack-pop-returns", "stacks", "Thinks pop() returns the removed value (in C++ it returns nothing)"),
+    ("stack-top-removes", "stacks", "Thinks top() removes the element (it only reads it)"),
+    ("queue-lifo", "queues", "Thinks a queue removes the newest element first (like a stack)"),
+    ("queue-back-front", "queues", "Mixes up front() (next to leave) with back() (most recent arrival)"),
+    ("queue-pop-returns", "queues", "Thinks pop() returns the removed value (in C++ it returns nothing)"),
+    ("ll-next-direction", "linkedlist", "Mixes up which node a next pointer leads to"),
+    ("ll-lose-head", "linkedlist", "Overwrites a pointer before saving it, losing the rest of the list"),
+    ("ll-null-end", "linkedlist", "Forgets the list ends at nullptr, so miscounts or walks past the end"),
+    ("ll-index-access", "linkedlist", "Thinks any node can be reached instantly like an array element"),
+]
+
+VERIFY = {}  # prompt -> C++ program whose output is the correct answer (checked by tools/verify_answers.py)
+_INC = "#include <iostream>\n#include <string>\n#include <stack>\n#include <queue>\nusing namespace std;\n"
+NODE_DEF = "struct Node { int v; Node* next; };"
+NODE = NODE_DEF + "  "
+
+def _v(c, d, prompt, opts, ans, code=None, defs=""):
+    if code:
+        VERIFY[prompt] = f"{_INC}{defs}\nint main() {{ {code} }}\n"
+    return _q(c, d, prompt, opts, ans, shuffle=True)
+
+QUESTIONS += [
+    # ---- strings ----
+    _v("strings", 1, 'string s = "hello";  cout << s[1];  Prints?',
+       [("A", "h", "str-off-by-one"), ("B", "e", None), ("C", "l", None), ("D", "o", None)], "B",
+       'string s = "hello"; cout << s[1];'),
+    _v("strings", 1, 'string s = "code";  cout << s.size();  Prints?',
+       [("A", "3", "str-off-by-one"), ("B", "4", None), ("C", "5", None), ("D", "code", None)], "B",
+       'string s = "code"; cout << s.size();'),
+    _v("strings", 2, 'string s = "abcdef";  cout << s.substr(2, 3);  Prints?',
+       [("A", "cde", None), ("B", "cd", "str-substr-args"), ("C", "c", "str-substr-args"), ("D", "bcd", "str-off-by-one")], "A",
+       'string s = "abcdef"; cout << s.substr(2, 3);'),
+    _v("strings", 2, "char c = 'a';  cout << c + 1;  Prints?",
+       [("A", "b", "str-char-arith"), ("B", "98", None), ("C", "a1", "str-char-arith"), ("D", "Compile error", None)], "B",
+       "char c = 'a'; cout << c + 1;"),
+    _v("strings", 3, "string a = \"hi\";  string b = a;  b[0] = 'H';  cout << a << b;  Prints?",
+       [("A", "HiHi", "str-copy-shares"), ("B", "hiHi", None), ("C", "hihi", None), ("D", "Hihi", None)], "B",
+       "string a = \"hi\"; string b = a; b[0] = 'H'; cout << a << b;"),
+    _v("strings", 3, 'string s = "abc";  for (int i = s.size() - 1; i >= 0; i--) cout << s[i];  Prints?',
+       [("A", "cba", None), ("B", "cb", "loop-boundary"), ("C", "abc", None), ("D", "Undefined behavior", "str-off-by-one")], "A",
+       'string s = "abc"; for (int i = s.size() - 1; i >= 0; i--) cout << s[i];'),
+    # ---- stacks ----
+    _v("stacks", 1, "stack<int> s;  s.push(1);  s.push(2);  s.push(3);  cout << s.top();  Prints?",
+       [("A", "1", "stack-fifo"), ("B", "3", None), ("C", "2", None), ("D", "6", None)], "B",
+       "stack<int> s; s.push(1); s.push(2); s.push(3); cout << s.top();"),
+    _v("stacks", 1, "stack<int> s;  s.push(5);  s.push(7);  s.pop();  cout << s.top();  Prints?",
+       [("A", "7", "stack-fifo"), ("B", "5", None), ("C", "12", None), ("D", "0", None)], "B",
+       "stack<int> s; s.push(5); s.push(7); s.pop(); cout << s.top();"),
+    _v("stacks", 2, "stack<int> s;  s.push(4);  int x = s.pop();  What happens?",
+       [("A", "x is 4", "stack-pop-returns"), ("B", "Compile error", None), ("C", "x is 0", None), ("D", "Undefined behavior", None)], "B",
+       "stack<int> s; s.push(4); int x = s.pop(); //EXPECT_COMPILE_ERROR"),
+    _v("stacks", 2, 'stack<char> s;  for (char c : string("abc")) s.push(c);  while (!s.empty()) { cout << s.top(); s.pop(); }  Prints?',
+       [("A", "abc", "stack-fifo"), ("B", "cba", None), ("C", "acb", None), ("D", "c", None)], "B",
+       'stack<char> s; for (char c : string("abc")) s.push(c); while (!s.empty()) { cout << s.top(); s.pop(); }'),
+    _v("stacks", 3, "stack<int> s;  s.push(1);  s.push(2);  cout << s.top();  cout << s.top();  Prints?",
+       [("A", "21", "stack-top-removes"), ("B", "22", None), ("C", "12", "stack-fifo"), ("D", "11", None)], "B",
+       "stack<int> s; s.push(1); s.push(2); cout << s.top(); cout << s.top();"),
+    _v("stacks", 3, "stack<int> s;  s.push(2);  s.push(3);  s.push(4);  int b = s.top();  s.pop();  int a = s.top();  s.pop();  s.push(a * b);  cout << s.top() + s.size();  Prints?",
+       [("A", "12", None), ("B", "13", None), ("C", "14", None), ("D", "24", None)], "C",
+       "stack<int> s; s.push(2); s.push(3); s.push(4); int b = s.top(); s.pop(); int a = s.top(); s.pop(); s.push(a * b); cout << s.top() + s.size();"),
+    # ---- queues ----
+    _v("queues", 1, "queue<int> q;  q.push(1);  q.push(2);  q.push(3);  cout << q.front();  Prints?",
+       [("A", "3", "queue-lifo"), ("B", "1", None), ("C", "2", None), ("D", "6", None)], "B",
+       "queue<int> q; q.push(1); q.push(2); q.push(3); cout << q.front();"),
+    _v("queues", 1, "queue<int> q;  q.push(1);  q.push(2);  q.push(3);  cout << q.back();  Prints?",
+       [("A", "1", "queue-back-front"), ("B", "3", None), ("C", "2", None), ("D", "0", None)], "B",
+       "queue<int> q; q.push(1); q.push(2); q.push(3); cout << q.back();"),
+    _v("queues", 2, "queue<int> q;  q.push(5);  q.push(7);  q.pop();  cout << q.front();  Prints?",
+       [("A", "5", "queue-lifo"), ("B", "7", None), ("C", "12", None), ("D", "0", None)], "B",
+       "queue<int> q; q.push(5); q.push(7); q.pop(); cout << q.front();"),
+    _v("queues", 2, "queue<int> q;  q.push(4);  int x = q.pop();  What happens?",
+       [("A", "x is 4", "queue-pop-returns"), ("B", "Compile error", None), ("C", "x is 0", None), ("D", "Undefined behavior", None)], "B",
+       "queue<int> q; q.push(4); int x = q.pop(); //EXPECT_COMPILE_ERROR"),
+    _v("queues", 3, "queue<int> q;  for (int i = 1; i <= 3; i++) q.push(i);  while (q.size() > 1) q.pop();  cout << q.front();  Prints?",
+       [("A", "1", "queue-lifo"), ("B", "3", None), ("C", "2", None), ("D", "0", None)], "B",
+       "queue<int> q; for (int i = 1; i <= 3; i++) q.push(i); while (q.size() > 1) q.pop(); cout << q.front();"),
+    _v("queues", 3, "queue<int> q;  q.push(1);  q.push(2);  q.push(3);  q.push(q.front());  q.pop();  cout << q.front() << q.back();  Prints?",
+       [("A", "21", None), ("B", "11", None), ("C", "23", None), ("D", "12", "queue-back-front")], "A",
+       "queue<int> q; q.push(1); q.push(2); q.push(3); q.push(q.front()); q.pop(); cout << q.front() << q.back();"),
+    # ---- linked lists ----
+    _v("linkedlist", 1, NODE + "Node* a = new Node{1, nullptr};  Node* b = new Node{2, a};  cout << b->next->v;  Prints?",
+       [("A", "2", "ll-next-direction"), ("B", "1", None), ("C", "0", None), ("D", "Crash (null pointer)", "ll-null-end")], "B",
+       "Node* a = new Node{1, nullptr}; Node* b = new Node{2, a}; cout << b->next->v;", NODE_DEF),
+    _v("linkedlist", 1, NODE + "Node* h = new Node{1, new Node{2, new Node{3, nullptr}}};  int n = 0;  for (Node* p = h; p != nullptr; p = p->next) n++;  cout << n;  Prints?",
+       [("A", "3", None), ("B", "2", "ll-null-end"), ("C", "4", "ll-null-end"), ("D", "1", None)], "A",
+       "Node* h = new Node{1, new Node{2, new Node{3, nullptr}}}; int n = 0; for (Node* p = h; p != nullptr; p = p->next) n++; cout << n;", NODE_DEF),
+    _v("linkedlist", 2, NODE + "Node* h = new Node{1, new Node{2, new Node{3, nullptr}}};  Node* p = h->next;  cout << p->v + p->next->v;  Prints?",
+       [("A", "5", None), ("B", "3", "ll-next-direction"), ("C", "6", None), ("D", "4", None)], "A",
+       "Node* h = new Node{1, new Node{2, new Node{3, nullptr}}}; Node* p = h->next; cout << p->v + p->next->v;", NODE_DEF),
+    _v("linkedlist", 2, "In a singly linked list, how do you reach the 5th node starting from the head pointer?",
+       [("A", "Follow next 4 times", None), ("B", "Jump straight to it, like a[4]", "ll-index-access"),
+        ("C", "Follow next 5 times", None), ("D", "Start from the tail pointer", None)], "A"),
+    _v("linkedlist", 3, NODE + "Node* h = new Node{2, nullptr};  Node* n = new Node{1, h};  h = n;  cout << h->v << h->next->v;  Prints?",
+       [("A", "12", None), ("B", "21", "ll-next-direction"), ("C", "11", None), ("D", "Crash (null pointer)", "ll-null-end")], "A",
+       "Node* h = new Node{2, nullptr}; Node* n = new Node{1, h}; h = n; cout << h->v << h->next->v;", NODE_DEF),
+    _v("linkedlist", 3, NODE + "Node* c = new Node{1, new Node{2, nullptr}};  Node* nx = c->next;  c->next = nullptr;  cout << c->v << nx->v << (c->next == nullptr);  Prints?",
+       [("A", "121", None), ("B", "211", "ll-next-direction"), ("C", "Crash (null pointer)", "ll-lose-head"), ("D", "120", None)], "A",
+       "Node* c = new Node{1, new Node{2, nullptr}}; Node* nx = c->next; c->next = nullptr; cout << c->v << nx->v << (c->next == nullptr);", NODE_DEF),
+]
+
 def seed(db):
-    """Idempotent: adds anything missing, so existing databases pick up new questions."""
-    if not db.query(Concept).count():
-        db.add_all([Concept(id=i, name=n, prereqs=p) for i, n, p in CONCEPTS])
-        db.commit()
+    """Idempotent: adds anything missing, so existing databases pick up new topics and questions."""
+    have_c = {c.id for c in db.query(Concept)}
+    db.add_all([Concept(id=i, name=n, prereqs=p) for i, n, p in CONCEPTS if i not in have_c])
+    db.commit()
     have_m = {m.id for m in db.query(Misconception)}
     db.add_all([Misconception(id=i, concept_id=c, description=d) for i, c, d in MISCONCEPTIONS if i not in have_m])
     have_q = {q.prompt for q in db.query(Question)}

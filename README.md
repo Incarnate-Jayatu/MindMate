@@ -18,14 +18,14 @@ flowchart LR
 | Feature | How it works |
 |---|---|
 | **Skill diagnosis** | A short quiz covers each concept and sets the starting knowledge map. |
-| **Misconception detection** | Every wrong option maps to a named misunderstanding (e.g. `arr-off-by-one`, `rec-no-base`). 14 are tracked today. |
+| **Misconception detection** | Every wrong option maps to a named misunderstanding (e.g. `arr-off-by-one`, `rec-no-base`). 28 are tracked today. |
 | **Adaptive tutor** | A wrong answer gets a short explanation aimed at the diagnosed misconception. Uses an LLM when an API key is set, and a built-in fallback otherwise. |
 | **Adaptive practice** | The next question comes from the weakest concept (weak prerequisites first), with difficulty matched to the learner's score. |
 | **Mastery verification** | "Mastered" needs a score of at least 75% **and** at least 3 *different* questions answered correctly. Repeating one question cannot fake it. |
 | **Endless fresh questions** | When the bank runs out, new variants are generated from templates with computed answers (no AI needed). |
 | **Knowledge map** | A prerequisite graph colored by status, a "learn next" recommendation, and a misconception history. |
 
-**Current scope:** C++ arrays, loops and recursion (27 hand-written questions plus generated variants). Strings, searching, sorting, linked lists, stacks and queues are on the roadmap.
+**Current topics:** C++ arrays, loops, recursion, strings, stacks, queues and linked lists (51 hand-written questions plus generated variants). Prerequisites: strings, stacks and linked lists build on arrays, queues build on stacks, recursion builds on loops.
 
 ## Tech stack
 
@@ -45,8 +45,9 @@ mindmate/
 │   │   ├── seed.py       # concepts, misconceptions, question bank
 │   │   ├── mastery.py    # scoring and mastery rules
 │   │   ├── practice.py   # next-question selection
-│   │   ├── variants.py   # question generator (9 templates)
+│   │   ├── variants.py   # question generator (21 templates)
 │   │   └── tutor.py      # LLM explanations with fallback
+│   ├── tools/            # verify_answers.py: checks answers with a real C++ compiler
 │   └── tests/
 ├── frontend/
 │   └── src/              # App.jsx (quiz, practice), KnowledgeMap.jsx
@@ -119,13 +120,14 @@ Interactive docs are served at `/docs`.
 
 - Each concept starts at a score of 0.5. Every answer moves it: `score = 0.7 × score + 0.3 × (1 if correct else 0)`.
 - Status is `weak` (below 40%), `learning`, or `mastered` (at least 75% and at least 3 distinct correct questions).
-- Generated variants have computed answers. Every template was cross-checked by compiling and running the C++ with `g++` (108 programs, no mismatches).
+- Generated variants have computed answers. Every stored answer and template was cross-checked by compiling and running the C++ with `g++` (191 programs, no mismatches).
 
 ## Testing
 
 ```bash
 cd backend && pytest
 cd frontend && npm run build
+cd backend && python tools/verify_answers.py   # optional, needs g++
 ```
 
 GitHub Actions runs both on every push.
@@ -138,7 +140,7 @@ GitHub Actions runs both on every push.
 
 ## Roadmap
 
-- [ ] More concepts: strings, searching, sorting, linked lists, stacks, queues
+- [ ] More concepts: functions, searching, sorting, trees, hash maps
 - [ ] Write-the-code questions graded by a sandboxed C++ runner
 - [ ] User accounts and saved progress across devices
 - [ ] Spaced repetition for mastered concepts
