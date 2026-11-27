@@ -1,23 +1,7 @@
 import { useState } from "react";
 import { api } from "./api";
 import KnowledgeMap from "./KnowledgeMap";
-
-const BADGE = {
-  unseen: "bg-slate-200 text-slate-700",
-  weak: "bg-red-100 text-red-700",
-  learning: "bg-amber-100 text-amber-800",
-  mastered: "bg-green-100 text-green-700",
-};
-
-const Card = ({ children }) => (
-  <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">{children}</div>
-);
-const Btn = (p) => (
-  <button
-    {...p}
-    className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-  />
-);
+import { Btn, Check, CodeBlock, Cross, Logo, Meter, NAMES, STICKER_BG, STICKER_ROT, StatusChip, TOPICS, splitPrompt } from "./ui";
 
 export default function App() {
   const [stage, setStage] = useState("start");
@@ -44,9 +28,15 @@ export default function App() {
     try {
       await fn();
     } catch {
-      setErr("Can't reach the server. Is the backend running on port 8000?");
+      setErr("Can't reach the server. If the site was idle, give it a minute to wake up, then try again.");
     }
     setBusy(false);
+  };
+
+  const reset = () => {
+    setChoice(null);
+    setRes(null);
+    setExpl(null);
   };
 
   const start = () =>
@@ -56,6 +46,7 @@ export default function App() {
       setMode("diag");
       setAllDone(false);
       setQs(await api.diagnostic());
+      setI(0);
       setStage("quiz");
     });
 
@@ -68,14 +59,10 @@ export default function App() {
       if (!r.correct) setExpl(await api.explain(user.id, q.id, choice));
     });
 
-  const reset = () => {
-    setChoice(null);
-    setRes(null);
-    setExpl(null);
-  };
-
   const showResults = async (finished = false) => {
-    setMap(await api.map(user.id));
+    const [m, ins] = await Promise.all([api.map(user.id), api.insights(user.id)]);
+    setMap(m);
+    setInsights(ins);
     setAllDone(finished);
     setStage("done");
   };
@@ -108,156 +95,225 @@ export default function App() {
   const openMap = () =>
     run(async () => {
       setLastStage(stage);
-      setMap(await api.map(user.id));
-      setInsights(await api.insights(user.id));
+      const [m, ins] = await Promise.all([api.map(user.id), api.insights(user.id)]);
+      setMap(m);
+      setInsights(ins);
       setStage("map");
     });
 
   const finish = () => run(() => showResults());
 
   const restart = () => {
-    setStage("start");
+    reset();
     setI(0);
-    setChoice(null);
-    setRes(null);
-    setExpl(null);
+    setStage("start");
   };
 
+  const parts = q ? splitPrompt(q.prompt) : null;
+  const answered = i + (res ? 1 : 0);
+  const waitingForTutor = res && !res.correct && !expl && busy;
+
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-indigo-700">MindMate</h1>
+    <div className="mx-auto max-w-5xl px-5 pb-20">
+      <header className="flex items-center justify-between py-6">
+        <div className="flex items-center gap-3">
+          <Logo />
+          <span className="font-display text-2xl font-extrabold tracking-tight">MindMate</span>
+        </div>
         {user && stage !== "start" && stage !== "map" && (
-          <button className="text-sm text-indigo-700 underline" onClick={openMap} disabled={busy}>Knowledge map</button>
+          <Btn ghost small onClick={openMap} disabled={busy}>Knowledge map</Btn>
         )}
-      </div>
-      {err && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{err}</p>}
+      </header>
+
+      {err && (
+        <p role="alert" className="mx-auto mb-5 max-w-2xl rounded-xl border-2 border-pen bg-[#ffe1df] px-4 py-3 text-sm font-medium text-[#8f1d24]">
+          {err}
+        </p>
+      )}
 
       {stage === "start" && (
-        <Card>
-          <p className="mb-4 text-slate-600">
-            A short check of your C++ basics, one question per topic: arrays, loops, recursion, strings, stacks, queues and linked lists. Wrong answers get a personal explanation.
-          </p>
-          <input
-            className="mb-4 w-full rounded-xl border border-slate-300 px-4 py-2"
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Btn onClick={start} disabled={busy}>Start diagnostic</Btn>
-        </Card>
+        <section className="grid items-start gap-12 pt-4 md:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
+              Learn C++ by fixing the mistakes you actually make.
+            </h1>
+            <p className="mt-6 max-w-md text-lg leading-relaxed text-pencil">
+              Take a short check with one question per topic. Each wrong answer shows what you probably misunderstood, then explains it.
+            </p>
+            <form
+              className="mt-8 flex max-w-md flex-col gap-3 sm:flex-row"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!busy) start();
+              }}
+            >
+              <label htmlFor="name" className="sr-only">Your name</label>
+              <input id="name" className="field" placeholder="Your name" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
+              <Btn type="submit" disabled={busy} className="shrink-0">{busy ? "Starting…" : "Start the check"}</Btn>
+            </form>
+            <div className="mt-12">
+              <p className="font-hand mb-3 text-2xl text-pencil">seven topics, from arrays to linked lists</p>
+              <div className="flex flex-wrap gap-3">
+                {TOPICS.map(([id, label], k) => (
+                  <span key={id} className="sticker" style={{ "--r": STICKER_ROT[k], background: STICKER_BG[k], animationDelay: `${k * 70}ms` }}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="sheet md:rotate-[1.5deg]" aria-hidden="true">
+            <p className="mb-3 text-sm text-pencil">Arrays</p>
+            <CodeBlock code={"int a[5] = {1, 2};\ncout << a[4];"} />
+            <p className="mb-3 mt-4 font-display text-lg font-bold">What does this print?</p>
+            <div className="space-y-2">
+              <div className="opt opt-wrong"><span className="badge"><Cross /></span>Garbage value</div>
+              <div className="opt opt-right"><span className="badge"><Check /></span>0</div>
+            </div>
+            <p className="mt-4 text-[15px] leading-relaxed">
+              <span className="font-semibold">Likely misunderstanding:</span>{" "}
+              <mark className="hl">Thinks unfilled slots hold garbage</mark>
+            </p>
+          </div>
+        </section>
       )}
 
       {stage === "quiz" && q && (
-        <Card>
-          <p className="mb-1 text-sm text-slate-500">
-            {mode === "practice"
-              ? `Practice · ${focus?.concept_name} (${focus?.status})`
-              : `Question ${i + 1} of ${qs.length} · ${q.concept_id}`}
-          </p>
-          <pre className="mb-4 whitespace-pre-wrap rounded-xl bg-slate-900 p-4 text-sm text-slate-100">{q.prompt}</pre>
-          <div className="space-y-2">
-            {q.options.map((o) => {
-              const picked = choice === o.key;
-              const done = !!res;
-              const isAnswer = done && o.key === res.answer_key;
-              const cls = isAnswer
-                ? "border-green-500 bg-green-50"
-                : done && picked
-                ? "border-red-500 bg-red-50"
-                : picked
-                ? "border-indigo-500 bg-indigo-50"
-                : "border-slate-300 hover:bg-slate-50";
-              return (
-                <button
-                  key={o.key}
-                  disabled={done}
-                  onClick={() => setChoice(o.key)}
-                  className={`w-full rounded-xl border px-4 py-2 text-left ${cls}`}
-                >
-                  <b>{o.key}.</b> {o.text}
-                </button>
-              );
-            })}
-          </div>
-
-          {res && (
-            <div className="mt-4 space-y-2">
-              <p className={res.correct ? "font-medium text-green-700" : "font-medium text-red-700"}>
-                {res.correct ? "Correct!" : "Not quite."}
-              </p>
-              <p className="text-sm text-slate-500">
-                {res.mastery.concept_id}: {res.mastery.status} ({Math.round(res.mastery.score * 100)}%)
-              </p>
-              {res.misconception && (
-                <p className="text-sm text-slate-600">
-                  <b>Likely misunderstanding:</b> {res.misconception.description}
-                </p>
-              )}
-              {expl && (
-                <div className="rounded-xl bg-indigo-50 p-4 text-sm text-slate-800">
-                  <p className="whitespace-pre-wrap">{expl.explanation}</p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    {expl.source === "ai" ? "AI tutor" : `Basic explanation${expl.note ? ` (${expl.note})` : ""}`}
-                  </p>
-                </div>
-              )}
+        <div className="mx-auto max-w-2xl">
+          {mode === "diag" && (
+            <div className="mb-5 flex gap-1.5" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={qs.length} aria-valuenow={answered}>
+              {qs.map((_, k) => (
+                <span key={k} className={`seg ${k < answered ? "seg-done" : k === i ? "seg-now" : ""}`} />
+              ))}
             </div>
           )}
 
-          <div className="mt-4">
-            {!res ? (
-              <Btn onClick={submit} disabled={!choice || busy}>Check answer</Btn>
-            ) : (
-              <>
-                <Btn onClick={next} disabled={busy}>
-                  {mode === "practice" ? "Next question" : i + 1 < qs.length ? "Next" : "See results"}
-                </Btn>
-                {mode === "practice" && (
-                  <button className="ml-3 text-sm text-slate-600 underline" onClick={finish}>Finish</button>
+          <section className="sheet ruled">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-display text-lg font-bold">{NAMES[q.concept_id] ?? q.concept_id}</span>
+                {mode === "practice" && focus && <StatusChip status={focus.status} />}
+              </div>
+              <p className="text-sm text-pencil">{mode === "diag" ? `Question ${i + 1} of ${qs.length}` : "Practice"}</p>
+            </div>
+
+            {parts.code && <CodeBlock code={parts.code} />}
+            {parts.question && <p className={`font-display text-xl font-bold ${parts.code ? "mt-4" : ""}`}>{parts.question}</p>}
+
+            <div className="mt-4 space-y-2.5" role="group" aria-label="Answer choices">
+              {q.options.map((o) => {
+                const done = !!res;
+                const picked = choice === o.key;
+                const isAnswer = done && o.key === res.answer_key;
+                const isWrong = done && picked && !res.correct;
+                const cls = isAnswer ? "opt-right" : isWrong ? "opt-wrong" : picked ? "opt-picked" : "";
+                return (
+                  <button key={o.key} type="button" disabled={done} onClick={() => setChoice(o.key)} className={`opt ${cls}`}>
+                    <span className="badge">{isAnswer ? <Check /> : isWrong ? <Cross /> : o.key}</span>
+                    <span>{o.text}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {res && (
+              <div className="mt-6 space-y-4" aria-live="polite">
+                <p className={`font-display text-3xl font-extrabold ${res.correct ? "text-pass" : "text-pen"}`}>
+                  {res.correct ? "Correct" : "Not quite"}
+                </p>
+                <div className="flex items-center gap-3">
+                  <StatusChip status={res.mastery.status} />
+                  <div className="w-32"><Meter score={res.mastery.score} status={res.mastery.status} /></div>
+                  <span className="text-sm text-pencil">{Math.round(res.mastery.score * 100)}%</span>
+                </div>
+                {res.misconception && (
+                  <p className="text-[15px] leading-relaxed">
+                    <span className="font-semibold">Likely misunderstanding:</span>{" "}
+                    <mark className="hl">{res.misconception.description}</mark>
+                  </p>
                 )}
-              </>
+                {waitingForTutor && <div className="note text-sm text-pencil">Your tutor is writing an explanation…</div>}
+                {expl && (
+                  <div className="note">
+                    <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{expl.explanation}</p>
+                    <p className="mt-2 text-xs text-pencil">
+                      {expl.source === "ai" ? "AI tutor" : `Basic explanation${expl.note ? ` (${expl.note})` : ""}`}
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
-        </Card>
+
+            <div className="mt-6 flex items-center gap-4">
+              {!res ? (
+                <Btn onClick={submit} disabled={!choice || busy}>{busy ? "Checking…" : "Check answer"}</Btn>
+              ) : (
+                <>
+                  <Btn onClick={next} disabled={busy}>
+                    {mode === "practice" ? "Next question" : i + 1 < qs.length ? "Next question" : "See results"}
+                  </Btn>
+                  {mode === "practice" && (
+                    <button type="button" className="text-sm font-medium text-pencil underline underline-offset-4" onClick={finish} disabled={busy}>
+                      Finish
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        </div>
       )}
 
       {stage === "map" && insights && (
-        <KnowledgeMap map={map} insights={insights} busy={busy}
-          onPractice={(id) => startPractice(id)} onBack={() => setStage(lastStage)} />
+        <div className="mx-auto max-w-2xl">
+          <KnowledgeMap map={map} insights={insights} busy={busy} onPractice={(id) => startPractice(id)} onBack={() => setStage(lastStage)} />
+        </div>
       )}
 
       {stage === "done" && (
-        <Card>
-          <h2 className="mb-3 text-lg font-semibold">Your results</h2>
-          <div className="space-y-3">
-            {map.map((c) => (
-              <div key={c.concept_id} className="rounded-xl border border-slate-200 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{c.name}</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs ${BADGE[c.status]}`}>{c.status}</span>
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-display text-4xl font-extrabold tracking-tight">Here's where you stand</h2>
+          <p className="mt-2 text-pencil">
+            {map.filter((c) => c.status === "mastered").length} of {map.length} topics mastered.
+            {!allDone && " Practice a topic to move its bar."}
+          </p>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            {map.map((c) => {
+              const mis = (insights?.misconceptions ?? []).filter((m) => m.concept_id === c.concept_id);
+              return (
+                <div key={c.concept_id} className="sheet p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-display text-xl font-bold">{c.name}</span>
+                    <StatusChip status={c.status} />
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="flex-1"><Meter score={c.score} status={c.status} /></div>
+                    <span className="text-sm text-pencil">{Math.round(c.score * 100)}%</span>
+                  </div>
+                  {mis.length > 0 && (
+                    <ul className="mt-3 space-y-1.5 text-sm leading-relaxed">
+                      {mis.map((m) => <li key={m.id}><mark className="hl">{m.description}</mark></li>)}
+                    </ul>
+                  )}
                 </div>
-                <div className="mt-2 h-2 rounded-full bg-slate-200">
-                  <div className="h-2 rounded-full bg-indigo-500" style={{ width: `${Math.round(c.score * 100)}%` }} />
-                </div>
-                {Object.keys(c.misconceptions).length > 0 && (
-                  <p className="mt-2 text-xs text-slate-500">Needs work: {Object.keys(c.misconceptions).join(", ")}</p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <div className="mt-4 flex items-center gap-4">
+          <div className="mt-8 flex flex-wrap items-center gap-5">
             {allDone ? (
-              <p className="font-medium text-green-700">All concepts mastered 🎉</p>
+              <p className="font-display text-xl font-bold text-pass">Every topic is mastered. Nice work.</p>
             ) : (
               <Btn onClick={() => startPractice()} disabled={busy}>
                 {mode === "practice" ? "Continue practice" : "Start practice"}
               </Btn>
             )}
-            <button className="text-sm text-slate-600 underline" onClick={restart}>Start over</button>
+            <button type="button" className="text-sm font-medium text-pencil underline underline-offset-4" onClick={restart}>
+              Start over
+            </button>
           </div>
-        </Card>
+        </div>
       )}
-    </main>
+    </div>
   );
 }
