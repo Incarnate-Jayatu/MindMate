@@ -133,7 +133,7 @@ MISCONCEPTIONS += [
 ]
 
 VERIFY = {}  # prompt -> C++ program whose output is the correct answer (checked by tools/verify_answers.py)
-_INC = "#include <iostream>\n#include <string>\n#include <stack>\n#include <queue>\nusing namespace std;\n"
+_INC = "#include <iostream>\n#include <string>\n#include <stack>\n#include <queue>\n#include <algorithm>\nusing namespace std;\n"
 NODE_DEF = "struct Node { int v; Node* next; };"
 NODE = NODE_DEF + "  "
 
@@ -219,6 +219,138 @@ QUESTIONS += [
     _v("linkedlist", 3, NODE + "Node* c = new Node{1, new Node{2, nullptr}};  Node* nx = c->next;  c->next = nullptr;  cout << c->v << nx->v << (c->next == nullptr);  Prints?",
        [("A", "121", None), ("B", "211", "ll-next-direction"), ("C", "Crash (null pointer)", "ll-lose-head"), ("D", "120", None)], "A",
        "Node* c = new Node{1, new Node{2, nullptr}}; Node* nx = c->next; c->next = nullptr; cout << c->v << nx->v << (c->next == nullptr);", NODE_DEF),
+]
+
+
+# ---- Part 8: searching, sorting, binary search trees, bit manipulation, doubly linked lists ----
+CONCEPTS += [
+    ("searching", "Searching", ["arrays"]),
+    ("sorting", "Sorting", ["arrays", "loops"]),
+    ("bst", "Binary search trees", ["recursion", "linkedlist"]),
+    ("bits", "Bit manipulation", ["loops"]),
+    ("dll", "Doubly linked lists", ["linkedlist"]),
+]
+
+MISCONCEPTIONS += [
+    ("search-binary-unsorted", "searching", "Thinks binary search works on any array, sorted or not"),
+    ("search-bounds-off-by-one", "searching", "Gets an index, the middle position or the next range wrong by one"),
+    ("search-linear-thinking", "searching", "Thinks binary search still looks at the elements one by one"),
+    ("search-not-found", "searching", "Forgets the not-found case and assumes the value is always there"),
+    ("sort-one-pass", "sorting", "Thinks a single pass of a sorting algorithm fully sorts the array"),
+    ("sort-swap-overwrite", "sorting", "Overwrites a value while swapping because no temporary copy is kept"),
+    ("sort-mixes-algorithms", "sorting", "Mixes up what one pass of bubble sort and selection sort each do"),
+    ("sort-count-n", "sorting", "Thinks sorting needs about n steps instead of about n times n"),
+    ("bst-sides", "bst", "Mixes up which side holds the smaller values and which the larger"),
+    ("bst-inorder-order", "bst", "Thinks an in-order traversal prints values in the order they were inserted"),
+    ("bst-insert-position", "bst", "Thinks a new value replaces the root instead of walking down to a free spot"),
+    ("bst-height-off", "bst", "Counts height in nodes instead of edges, or is off by one"),
+    ("bst-always-balanced", "bst", "Assumes a binary search tree stays balanced whatever the insertion order"),
+    ("bit-and-or", "bits", "Mixes up & (AND) with | (OR)"),
+    ("bit-shift-direction", "bits", "Thinks << divides and >> multiplies"),
+    ("bit-xor-meaning", "bits", "Treats ^ (XOR) like OR, forgetting it is 0 when both bits are 1"),
+    ("bit-position-from-1", "bits", "Counts bit positions from 1 instead of 0"),
+    ("dll-forgot-prev", "dll", "Updates the next pointers but forgets the matching prev pointers"),
+    ("dll-rewire-order", "dll", "Rewires pointers in the wrong order and loses part of the list"),
+    ("dll-null-ends", "dll", "Forgets that the first prev and the last next are nullptr"),
+    ("dll-direction", "dll", "Mixes up walking forward with next and backward with prev"),
+]
+
+DN_DEF = "struct DNode { int v; DNode* prev; DNode* next; };"
+DN = DN_DEF + "  "
+BST_DEF = ("struct T { int v; T* l; T* r; }; "
+           "T* ins(T* t, int x) { if (!t) return new T{x, nullptr, nullptr}; if (x < t->v) t->l = ins(t->l, x); else t->r = ins(t->r, x); return t; } "
+           "void inord(T* t) { if (!t) return; inord(t->l); cout << t->v; inord(t->r); } "
+           "int ht(T* t) { return t ? 1 + max(ht(t->l), ht(t->r)) : -1; }")
+
+QUESTIONS += [
+    # ---- searching ----
+    _v("searching", 1, 'int a[] = {4, 9, 7, 2};  int idx = -1;  for (int i = 0; i < 4; i++) if (a[i] == 7) { idx = i; break; }  cout << idx;  Prints?',
+       [("A", "3", "search-bounds-off-by-one"), ("B", "2", None), ("C", "7", None), ("D", "-1", "search-not-found")], "B",
+       "int a[] = {4, 9, 7, 2}; int idx = -1; for (int i = 0; i < 4; i++) if (a[i] == 7) { idx = i; break; } cout << idx;"),
+    _v("searching", 1, 'int a[] = {4, 9, 7, 2};  int idx = -1;  for (int i = 0; i < 4; i++) if (a[i] == 5) { idx = i; break; }  cout << idx;  Prints?',
+       [("A", "-1", None), ("B", "0", "search-not-found"), ("C", "4", None), ("D", "5", None)], "A",
+       "int a[] = {4, 9, 7, 2}; int idx = -1; for (int i = 0; i < 4; i++) if (a[i] == 5) { idx = i; break; } cout << idx;"),
+    _v("searching", 2, 'int a[] = {1, 3, 5, 7, 9, 11, 13};  int lo = 0, hi = 6, steps = 0;  while (lo <= hi) { int mid = (lo + hi) / 2; steps++; if (a[mid] == 13) break; if (a[mid] < 13) lo = mid + 1; else hi = mid - 1; }  cout << steps;  Prints?',
+       [("A", "3", None), ("B", "7", "search-linear-thinking"), ("C", "2", None), ("D", "6", "search-bounds-off-by-one")], "A",
+       "int a[] = {1, 3, 5, 7, 9, 11, 13}; int lo = 0, hi = 6, steps = 0; while (lo <= hi) { int mid = (lo + hi) / 2; steps++; if (a[mid] == 13) break; if (a[mid] < 13) lo = mid + 1; else hi = mid - 1; } cout << steps;"),
+    _v("searching", 2, "int a[] = {1, 3, 5, 7, 9};  int lo = 0, hi = 4;  int mid = (lo + hi) / 2;  cout << a[mid];  Prints?",
+       [("A", "5", None), ("B", "3", "search-bounds-off-by-one"), ("C", "7", "search-bounds-off-by-one"), ("D", "9", None)], "A",
+       "int a[] = {1, 3, 5, 7, 9}; int lo = 0, hi = 4; int mid = (lo + hi) / 2; cout << a[mid];"),
+    _v("searching", 3, 'int a[] = {9, 1, 5, 3, 7};  int lo = 0, hi = 4, found = -1;  while (lo <= hi) { int mid = (lo + hi) / 2; if (a[mid] == 9) { found = mid; break; } if (a[mid] < 9) lo = mid + 1; else hi = mid - 1; }  cout << found;  Prints?',
+       [("A", "0", "search-binary-unsorted"), ("B", "-1", None), ("C", "4", None), ("D", "2", None)], "B",
+       "int a[] = {9, 1, 5, 3, 7}; int lo = 0, hi = 4, found = -1; while (lo <= hi) { int mid = (lo + hi) / 2; if (a[mid] == 9) { found = mid; break; } if (a[mid] < 9) lo = mid + 1; else hi = mid - 1; } cout << found;"),
+    _v("searching", 3, "In a sorted array of 16 elements, binary search looks at no more than how many elements?",
+       [("A", "5", None), ("B", "16", "search-linear-thinking"), ("C", "4", None), ("D", "8", "search-linear-thinking")], "A",
+       "int a[16]; for (int i = 0; i < 16; i++) a[i] = i * 2; int worst = 0; for (int t = -1; t <= 32; t++) { int lo = 0, hi = 15, s = 0; while (lo <= hi) { int mid = (lo + hi) / 2; s++; if (a[mid] == t) break; if (a[mid] < t) lo = mid + 1; else hi = mid - 1; } if (s > worst) worst = s; } cout << worst;"),
+    # ---- sorting ----
+    _v("sorting", 1, "int a[] = {4, 3, 2, 1};  for (int j = 0; j < 3; j++) if (a[j] > a[j + 1]) swap(a[j], a[j + 1]);  for (int x : a) cout << x;  Prints?",
+       [("A", "3214", None), ("B", "1234", "sort-one-pass"), ("C", "3421", None), ("D", "4321", None)], "A",
+       "int a[] = {4, 3, 2, 1}; for (int j = 0; j < 3; j++) if (a[j] > a[j + 1]) swap(a[j], a[j + 1]); for (int x : a) cout << x;"),
+    _v("sorting", 1, "int a = 1, b = 2;  a = b;  b = a;  cout << a << b;  Prints?",
+       [("A", "21", "sort-swap-overwrite"), ("B", "22", None), ("C", "12", None), ("D", "11", None)], "B",
+       "int a = 1, b = 2; a = b; b = a; cout << a << b;"),
+    _v("sorting", 2, "int a[] = {2, 5, 3};  int key = a[2];  int j = 1;  while (j >= 0 && a[j] > key) { a[j + 1] = a[j]; j--; }  a[j + 1] = key;  for (int x : a) cout << x;  Prints?",
+       [("A", "235", None), ("B", "253", None), ("C", "325", None), ("D", "255", "sort-swap-overwrite")], "A",
+       "int a[] = {2, 5, 3}; int key = a[2]; int j = 1; while (j >= 0 && a[j] > key) { a[j + 1] = a[j]; j--; } a[j + 1] = key; for (int x : a) cout << x;"),
+    _v("sorting", 2, "int a[] = {4, 3, 2, 1};  int m = 0;  for (int i = 1; i < 4; i++) if (a[i] < a[m]) m = i;  swap(a[0], a[m]);  for (int x : a) cout << x;  Prints?",
+       [("A", "1324", None), ("B", "1234", "sort-one-pass"), ("C", "3214", "sort-mixes-algorithms"), ("D", "4321", None)], "A",
+       "int a[] = {4, 3, 2, 1}; int m = 0; for (int i = 1; i < 4; i++) if (a[i] < a[m]) m = i; swap(a[0], a[m]); for (int x : a) cout << x;"),
+    _v("sorting", 3, "int a[] = {4, 3, 2, 1};  int c = 0;  for (int i = 0; i < 3; i++) for (int j = 0; j < 3 - i; j++) { c++; if (a[j] > a[j + 1]) swap(a[j], a[j + 1]); }  cout << c;  Prints?",
+       [("A", "6", None), ("B", "4", "sort-count-n"), ("C", "3", None), ("D", "9", None)], "A",
+       "int a[] = {4, 3, 2, 1}; int c = 0; for (int i = 0; i < 3; i++) for (int j = 0; j < 3 - i; j++) { c++; if (a[j] > a[j + 1]) swap(a[j], a[j + 1]); } cout << c;"),
+    _v("sorting", 3, "int a[] = {1, 2, 3, 4};  int swaps = 0;  for (int i = 0; i < 3; i++) for (int j = 0; j < 3 - i; j++) if (a[j] > a[j + 1]) { swap(a[j], a[j + 1]); swaps++; }  cout << swaps;  Prints?",
+       [("A", "0", None), ("B", "6", "sort-count-n"), ("C", "3", None), ("D", "4", None)], "A",
+       "int a[] = {1, 2, 3, 4}; int swaps = 0; for (int i = 0; i < 3; i++) for (int j = 0; j < 3 - i; j++) if (a[j] > a[j + 1]) { swap(a[j], a[j + 1]); swaps++; } cout << swaps;"),
+    # ---- binary search trees ----
+    _v("bst", 1, "Insert 5, 3, 8 into an empty binary search tree (smaller values go left). Where does 3 go?",
+       [("A", "Left child of 5", None), ("B", "Right child of 5", "bst-sides"), ("C", "It replaces the root", "bst-insert-position"), ("D", "Left child of 8", None)], "A",
+       'T* r = nullptr; for (int x : {5, 3, 8}) r = ins(r, x); cout << (r->l && r->l->v == 3 ? "Left child of 5" : "other");', BST_DEF),
+    _v("bst", 1, "In a binary search tree, how does every value in the left subtree of a node compare to that node?",
+       [("A", "It is smaller", None), ("B", "It is larger", "bst-sides"), ("C", "It is equal", None), ("D", "There is no rule", None)], "A"),
+    _v("bst", 2, "Insert 5, 3, 8, 1, 4 into an empty binary search tree. What does an in-order traversal (left, node, right) print?",
+       [("A", "13458", None), ("B", "53814", "bst-inorder-order"), ("C", "53148", None), ("D", "14385", None)], "A",
+       "T* r = nullptr; for (int x : {5, 3, 8, 1, 4}) r = ins(r, x); inord(r);", BST_DEF),
+    _v("bst", 2, "Insert 4, 2, 6, 1 into an empty binary search tree. What is its height (edges on the longest path from the root to a leaf)?",
+       [("A", "2", None), ("B", "3", "bst-height-off"), ("C", "4", None), ("D", "1", "bst-height-off")], "A",
+       "T* r = nullptr; for (int x : {4, 2, 6, 1}) r = ins(r, x); cout << ht(r);", BST_DEF),
+    _v("bst", 3, "Insert 1, 2, 3, 4 into an empty binary search tree in that order. What is its height (edges)?",
+       [("A", "3", None), ("B", "2", "bst-always-balanced"), ("C", "4", "bst-height-off"), ("D", "1", None)], "A",
+       "T* r = nullptr; for (int x : {1, 2, 3, 4}) r = ins(r, x); cout << ht(r);", BST_DEF),
+    _v("bst", 3, "struct T { int v; T* l; T* r; };  T* ins(T* t, int x) { if (!t) return new T{x, nullptr, nullptr}; if (x < t->v) t->l = ins(t->l, x); else t->r = ins(t->r, x); return t; }  T* root = nullptr;  for (int x : {5, 3, 8, 1}) root = ins(root, x);  cout << root->l->l->v;  Prints?",
+       [("A", "1", None), ("B", "3", "bst-sides"), ("C", "8", "bst-sides"), ("D", "5", "bst-insert-position")], "A",
+       "T* root = nullptr; for (int x : {5, 3, 8, 1}) root = ins(root, x); cout << root->l->l->v;", BST_DEF),
+    # ---- bit manipulation ----
+    _v("bits", 1, "cout << (6 & 3);  Prints?",
+       [("A", "2", None), ("B", "7", "bit-and-or"), ("C", "3", None), ("D", "1", None)], "A", "cout << (6 & 3);"),
+    _v("bits", 1, "cout << (1 << 3);  Prints?",
+       [("A", "8", None), ("B", "0", "bit-shift-direction"), ("C", "3", None), ("D", "16", None)], "A", "cout << (1 << 3);"),
+    _v("bits", 2, "cout << (12 >> 2);  Prints?",
+       [("A", "3", None), ("B", "48", "bit-shift-direction"), ("C", "10", None), ("D", "6", None)], "A", "cout << (12 >> 2);"),
+    _v("bits", 2, "cout << (5 ^ 3);  Prints?",
+       [("A", "6", None), ("B", "7", "bit-xor-meaning"), ("C", "1", "bit-and-or"), ("D", "2", None)], "A", "cout << (5 ^ 3);"),
+    _v("bits", 3, "int n = 10;  cout << ((n >> 1) & 1);  Prints?",
+       [("A", "1", None), ("B", "0", "bit-position-from-1"), ("C", "5", None), ("D", "10", None)], "A", "int n = 10; cout << ((n >> 1) & 1);"),
+    _v("bits", 3, "int n = 13;  int c = 0;  while (n) { n &= n - 1; c++; }  cout << c;  Prints?",
+       [("A", "3", None), ("B", "4", None), ("C", "2", None), ("D", "13", None)], "A", "int n = 13; int c = 0; while (n) { n &= n - 1; c++; } cout << c;"),
+    # ---- doubly linked lists ----
+    _v("dll", 1, DN + "DNode* a = new DNode{1, nullptr, nullptr};  DNode* b = new DNode{2, a, nullptr};  a->next = b;  cout << b->prev->v;  Prints?",
+       [("A", "1", None), ("B", "2", "dll-direction"), ("C", "0", None), ("D", "Crash (null pointer)", "dll-null-ends")], "A",
+       "DNode* a = new DNode{1, nullptr, nullptr}; DNode* b = new DNode{2, a, nullptr}; a->next = b; cout << b->prev->v;", DN_DEF),
+    _v("dll", 1, DN + "DNode* a = new DNode{1, nullptr, nullptr};  DNode* b = new DNode{2, a, nullptr};  a->next = b;  cout << (a->prev == nullptr);  Prints?",
+       [("A", "1", None), ("B", "0", "dll-null-ends"), ("C", "Crash (null pointer)", "dll-null-ends"), ("D", "2", None)], "A",
+       "DNode* a = new DNode{1, nullptr, nullptr}; DNode* b = new DNode{2, a, nullptr}; a->next = b; cout << (a->prev == nullptr);", DN_DEF),
+    _v("dll", 2, DN + "DNode* a = new DNode{1, nullptr, nullptr};  DNode* b = new DNode{2, a, nullptr};  DNode* c = new DNode{3, b, nullptr};  a->next = b;  b->next = c;  for (DNode* p = c; p != nullptr; p = p->prev) cout << p->v;  Prints?",
+       [("A", "321", None), ("B", "123", "dll-direction"), ("C", "32", "dll-null-ends"), ("D", "3", "dll-forgot-prev")], "A",
+       "DNode* a = new DNode{1, nullptr, nullptr}; DNode* b = new DNode{2, a, nullptr}; DNode* c = new DNode{3, b, nullptr}; a->next = b; b->next = c; for (DNode* p = c; p != nullptr; p = p->prev) cout << p->v;", DN_DEF),
+    _v("dll", 2, DN + "DNode* a = new DNode{1, nullptr, nullptr};  DNode* c = new DNode{3, a, nullptr};  a->next = c;  DNode* b = new DNode{2, a, c};  a->next = b;  c->prev = b;  cout << a->next->v << c->prev->v;  Prints?",
+       [("A", "22", None), ("B", "21", "dll-forgot-prev"), ("C", "12", None), ("D", "23", None)], "A",
+       "DNode* a = new DNode{1, nullptr, nullptr}; DNode* c = new DNode{3, a, nullptr}; a->next = c; DNode* b = new DNode{2, a, c}; a->next = b; c->prev = b; cout << a->next->v << c->prev->v;", DN_DEF),
+    _v("dll", 3, DN + "DNode* a = new DNode{1, nullptr, nullptr};  DNode* b = new DNode{2, a, nullptr};  DNode* c = new DNode{3, b, nullptr};  a->next = b;  b->next = c;  a->next = c;  c->prev = a;  cout << c->prev->v << a->next->v;  Prints?",
+       [("A", "13", None), ("B", "23", "dll-forgot-prev"), ("C", "12", "dll-rewire-order"), ("D", "11", None)], "A",
+       "DNode* a = new DNode{1, nullptr, nullptr}; DNode* b = new DNode{2, a, nullptr}; DNode* c = new DNode{3, b, nullptr}; a->next = b; b->next = c; a->next = c; c->prev = a; cout << c->prev->v << a->next->v;", DN_DEF),
+    _v("dll", 3, DN + "DNode* h = new DNode{2, nullptr, nullptr};  DNode* n = new DNode{1, nullptr, h};  h->prev = n;  h = n;  cout << h->v << h->next->v << h->next->prev->v;  Prints?",
+       [("A", "121", None), ("B", "Crash (null pointer)", "dll-forgot-prev"), ("C", "212", "dll-direction"), ("D", "112", None)], "A",
+       "DNode* h = new DNode{2, nullptr, nullptr}; DNode* n = new DNode{1, nullptr, h}; h->prev = n; h = n; cout << h->v << h->next->v << h->next->prev->v;", DN_DEF),
 ]
 
 def seed(db):

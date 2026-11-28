@@ -18,22 +18,23 @@ flowchart LR
 
 | Feature | How it works |
 |---|---|
-| **Skill diagnosis** | A short quiz covers each concept and sets the starting knowledge map. |
-| **Misconception detection** | Every wrong option maps to a named misunderstanding (e.g. `arr-off-by-one`, `rec-no-base`). 28 are tracked today. |
+| **Choose your topics** | Pick which of the 12 topics to practice, on the start page or later under *My topics*. The diagnostic, practice and recommendations only use your choice, and your progress on other topics is kept. |
+| **Skill diagnosis** | A short quiz with one question per chosen topic sets the starting knowledge map. |
+| **Misconception detection** | Every wrong option maps to a named misunderstanding (e.g. `arr-off-by-one`, `rec-no-base`). 49 are tracked today. |
 | **Adaptive tutor** | A wrong answer gets a short explanation aimed at the diagnosed misconception. Uses an LLM when an API key is set, and a built-in fallback otherwise. |
 | **Adaptive practice** | The next question comes from the weakest concept (weak prerequisites first), with difficulty matched to the learner's score. |
 | **Mastery verification** | "Mastered" needs a score of at least 75% **and** at least 3 *different* questions answered correctly. Repeating one question cannot fake it. |
 | **Endless fresh questions** | When the bank runs out, new variants are generated from templates with computed answers (no AI needed). |
 | **Knowledge map** | A prerequisite graph colored by status, a "learn next" recommendation, and a misconception history. |
 
-**Current topics:** C++ arrays, loops, recursion, strings, stacks, queues and linked lists (51 hand-written questions plus generated variants). Prerequisites: strings, stacks and linked lists build on arrays, queues build on stacks, recursion builds on loops.
+**Current topics (12):** arrays, loops, recursion, strings, stacks, queues, linked lists, doubly linked lists, binary search trees, searching, sorting and bit manipulation (81 hand-written questions plus generated variants). Prerequisites are shown on the knowledge map, for example queues build on stacks and binary search trees build on recursion and linked lists. A prerequisite you did not choose never blocks practice.
 
 ## Tech stack
 
 - **Frontend:** React, Vite, Tailwind CSS
 - **Backend:** Python, FastAPI, SQLAlchemy
 - **Database:** SQLite locally, PostgreSQL (e.g. Supabase) in production
-- **AI (optional):** Groq (Llama 3.3) or Anthropic Claude for personalized explanations
+- **AI (optional):** Groq (GPT-OSS) or Anthropic Claude for personalized explanations
 
 ## Project structure
 
@@ -43,10 +44,11 @@ mindmate/
 │   ├── app/
 │   │   ├── main.py       # API endpoints
 │   │   ├── models.py     # database tables
+│   │   ├── topics.py     # which topics a learner chose
 │   │   ├── seed.py       # concepts, misconceptions, question bank
 │   │   ├── mastery.py    # scoring and mastery rules
 │   │   ├── practice.py   # next-question selection
-│   │   ├── variants.py   # question generator (21 templates)
+│   │   ├── variants.py   # question generator (36 templates)
 │   │   └── tutor.py      # LLM explanations with fallback
 │   ├── tools/            # verify_answers.py: checks answers with a real C++ compiler
 │   └── tests/
@@ -95,7 +97,7 @@ Anthropic also works: set `ANTHROPIC_API_KEY` instead. If both are set, Groq is 
 |---|---|---|
 | `DATABASE_URL` | backend | Database address. Defaults to local SQLite. Postgres URLs work as given. |
 | `GROQ_API_KEY` | backend | Enables AI explanations via Groq (optional). |
-| `GROQ_MODEL` | backend | Model override (default `llama-3.3-70b-versatile`). |
+| `GROQ_MODEL` | backend | Model override (default `openai/gpt-oss-120b`; `openai/gpt-oss-20b` is tried automatically if it is retired). |
 | `ANTHROPIC_API_KEY` | backend | Alternative AI provider (optional). |
 | `CORS_ORIGINS` | backend | Comma-separated frontend addresses allowed to call the API in production. |
 | `VITE_API_URL` | frontend | Backend address (default `http://127.0.0.1:8000`). Set at build time. |
@@ -104,14 +106,15 @@ Anthropic also works: set `ANTHROPIC_API_KEY` instead. If both are set, Groq is 
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/users` | Create a learner |
+| POST | `/users` | Create a learner (optionally with the chosen `topics`) |
+| GET / PUT | `/users/{user_id}/topics` | Read or change the learner's chosen topics |
 | GET | `/concepts` | List concepts and prerequisites |
-| GET | `/diagnostic` | One question per concept |
+| GET | `/diagnostic?user_id=` | One question per chosen topic (all topics without `user_id`) |
 | GET | `/questions?concept_id=` | All questions for a concept |
 | POST | `/attempts` | Grade an answer, detect the misconception, update mastery |
 | POST | `/tutor/explain` | Explanation for a wrong answer |
 | GET | `/practice/next?user_id=&concept_id=` | Next adaptive question (concept optional) |
-| GET | `/map/{user_id}` | Per-concept score and status |
+| GET | `/map/{user_id}` | Per-concept score, status and whether it is chosen |
 | GET | `/insights/{user_id}` | "Learn next" recommendation and misconception history |
 | GET | `/health` | Health check |
 
@@ -121,7 +124,7 @@ Interactive docs are served at `/docs`.
 
 - Each concept starts at a score of 0.5. Every answer moves it: `score = 0.7 × score + 0.3 × (1 if correct else 0)`.
 - Status is `weak` (below 40%), `learning`, or `mastered` (at least 75% and at least 3 distinct correct questions).
-- Generated variants have computed answers. Every stored answer and template was cross-checked by compiling and running the C++ with `g++` (191 programs, no mismatches).
+- Generated variants have computed answers. Every stored answer and template was cross-checked by compiling and running the C++ with `g++` (340 programs, no mismatches).
 
 ## Testing
 
@@ -141,7 +144,7 @@ GitHub Actions runs both on every push.
 
 ## Roadmap
 
-- [ ] More concepts: functions, searching, sorting, trees, hash maps
+- [ ] More concepts: functions, hash maps, heaps, graphs, dynamic programming
 - [ ] Write-the-code questions graded by a sandboxed C++ runner
 - [ ] User accounts and saved progress across devices
 - [ ] Spaced repetition for mastered concepts

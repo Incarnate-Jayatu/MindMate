@@ -125,6 +125,10 @@
     font-family: var(--font-display); font-weight: 700; box-shadow: 3px 3px 0 var(--color-ink);
     transform: rotate(var(--r, 0deg));
   }
+  button.topic { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; font-size: .95rem; transition: box-shadow .12s ease, translate .12s ease; }
+  button.topic:hover { translate: -1px -1px; box-shadow: 4px 4px 0 var(--color-ink); }
+  button.topic:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--color-ink); }
+  .topic-off { border-style: dashed; color: var(--color-pencil); box-shadow: none; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

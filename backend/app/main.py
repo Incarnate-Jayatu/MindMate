@@ -9,7 +9,7 @@ from . import mastery as ms
 from .db import Base, engine, get_db, SessionLocal
 from .models import User, Concept, Misconception, Question, Attempt, Mastery
 from .seed import seed
-from . import tutor, practice
+from . import tutor, practice, topics
 
 @asynccontextmanager
 async def lifespan(_):
@@ -23,6 +23,10 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", *filt
 
 class UserIn(BaseModel):
     name: str
+    topics: list[str] | None = None
+
+class TopicsIn(BaseModel):
+    topics: list[str]
 
 class AttemptIn(BaseModel):
     user_id: int
@@ -35,20 +39,44 @@ def _public(q: Question):
 
 @app.post("/users")
 def create_user(body: UserIn, db: Session = Depends(get_db)):
+    if body.topics is not None:
+        valid = {c.id for c in db.query(Concept)}
+        if not body.topics or any(t not in valid for t in body.topics):
+            raise HTTPException(422, "choose at least one valid topic")
     u = User(name=body.name)
     db.add(u); db.commit()
+    if body.topics is not None:
+        topics.set_selected(db, u.id, body.topics)
     return {"id": u.id, "name": u.name}
+
+@app.get("/users/{user_id}/topics")
+def get_topics(user_id: int, db: Session = Depends(get_db)):
+    if not db.get(User, user_id):
+        raise HTTPException(404, "user not found")
+    sel = topics.selected_ids(db, user_id)
+    return {"topics": sel if sel is not None else [c.id for c in db.query(Concept).order_by(Concept.id)]}
+
+@app.put("/users/{user_id}/topics")
+def put_topics(user_id: int, body: TopicsIn, db: Session = Depends(get_db)):
+    if not db.get(User, user_id):
+        raise HTTPException(404, "user not found")
+    try:
+        return {"topics": topics.set_selected(db, user_id, body.topics)}
+    except ValueError:
+        raise HTTPException(422, "choose at least one valid topic")
 
 @app.get("/concepts")
 def concepts(db: Session = Depends(get_db)):
     return [{"id": c.id, "name": c.name, "prereqs": c.prereqs} for c in db.query(Concept)]
 
 @app.get("/diagnostic")
-def diagnostic(db: Session = Depends(get_db)):
-    """One medium-difficulty question per concept (difficulty 2)."""
+def diagnostic(user_id: int | None = None, db: Session = Depends(get_db)):
+    """One medium-difficulty question per topic (difficulty 2), only for the learner's chosen topics."""
+    sel = topics.selected_ids(db, user_id) if user_id else None
     first = {}
     for q in db.query(Question).filter(Question.difficulty == 2).order_by(Question.id):
-        first.setdefault(q.concept_id, q)
+        if sel is None or q.concept_id in sel:
+            first.setdefault(q.concept_id, q)
     return [_public(q) for q in first.values()]
 
 @app.get("/questions")
@@ -84,6 +112,7 @@ def attempt(body: AttemptIn, db: Session = Depends(get_db)):
 
 @app.get("/map/{user_id}")
 def knowledge_map(user_id: int, db: Session = Depends(get_db)):
+    sel = topics.selected_ids(db, user_id)
     rows = {m.concept_id: m for m in db.query(Mastery).filter_by(user_id=user_id)}
     counts = dict(db.query(Attempt.misconception_id, func.count()).filter(
         Attempt.user_id == user_id, Attempt.misconception_id.isnot(None)).group_by(Attempt.misconception_id).all())
@@ -91,7 +120,7 @@ def knowledge_map(user_id: int, db: Session = Depends(get_db)):
     for c in db.query(Concept):
         m = rows.get(c.id)
         mids = [x.id for x in db.query(Misconception).filter_by(concept_id=c.id) if x.id in counts]
-        out.append({"concept_id": c.id, "name": c.name, "prereqs": c.prereqs,
+        out.append({"concept_id": c.id, "name": c.name, "prereqs": c.prereqs, "selected": sel is None or c.id in sel,
                     "score": m.score if m else 0.5, "attempts": m.attempts if m else 0,
                     "status": m.status if m else "unseen",
                     "misconceptions": {i: counts[i] for i in mids}})

@@ -23,7 +23,7 @@ def _wrong_diagnostic(c):
 
 def test_bank_is_consistent():
     prompts = [q["prompt"] for q in QUESTIONS]
-    assert len(QUESTIONS) >= 51 and len(prompts) == len(set(prompts))
+    assert len(QUESTIONS) >= 81 and len(prompts) == len(set(prompts))
     concepts = {c[0] for c in CONCEPTS}
     misc = {m[0] for m in MISCONCEPTIONS}
     assert all(p in concepts for c in CONCEPTS for p in c[2])
@@ -40,7 +40,7 @@ def test_practice_reaches_mastery():
         first = c.get(f"/practice/next?user_id={uid}").json()
         assert not first["done"] and first["question"]["difficulty"] == 1
         seen = set()
-        for _ in range(150):
+        for _ in range(250):
             r = c.get(f"/practice/next?user_id={uid}").json()
             if r["done"]:
                 break
@@ -51,7 +51,7 @@ def test_practice_reaches_mastery():
         else:
             raise AssertionError("never finished")
         statuses = {m["concept_id"]: m["status"] for m in c.get(f"/map/{uid}").json()}
-        assert len(statuses) == 7 and set(statuses.values()) == {"mastered"}
+        assert len(statuses) == 12 and set(statuses.values()) == {"mastered"}
 
 def test_repeating_one_question_is_not_mastery():
     with TestClient(app) as c:
@@ -79,3 +79,40 @@ def test_prerequisite_gating():
             r = c.get(f"/practice/next?user_id={uid}").json()
             assert r["concept_id"] in {"arrays", "loops"}
             _answer(c, uid, r["question"]["id"], False)
+
+def test_topic_selection_limits_diagnostic_and_practice():
+    with TestClient(app) as c:
+        uid = c.post("/users", json={"name": "T", "topics": ["arrays", "sorting"]}).json()["id"]
+        assert set(c.get(f"/diagnostic?user_id={uid}").json()[i]["concept_id"] for i in range(2)) == {"arrays", "sorting"}
+        assert len(c.get(f"/diagnostic?user_id={uid}").json()) == 2
+        assert len(c.get("/diagnostic").json()) == 12
+        flags = {m["concept_id"]: m["selected"] for m in c.get(f"/map/{uid}").json()}
+        assert flags["arrays"] and flags["sorting"] and not flags["bst"] and not flags["queues"]
+        seen = set()
+        for _ in range(120):
+            r = c.get(f"/practice/next?user_id={uid}").json()
+            if r["done"]:
+                break
+            seen.add(r["concept_id"])
+            _answer(c, uid, r["question"]["id"], True)
+        else:
+            raise AssertionError("never finished")
+        assert seen == {"arrays", "sorting"}
+
+def test_changing_topics_and_validation():
+    with TestClient(app) as c:
+        uid = c.post("/users", json={"name": "U"}).json()["id"]
+        assert len(c.get(f"/users/{uid}/topics").json()["topics"]) == 12      # default: every topic
+        assert c.put(f"/users/{uid}/topics", json={"topics": ["bits"]}).json() == {"topics": ["bits"]}
+        assert c.get(f"/practice/next?user_id={uid}").json()["concept_id"] == "bits"
+        assert c.get(f"/insights/{uid}").json()["recommended"]["concept_id"] == "bits"
+        assert c.put(f"/users/{uid}/topics", json={"topics": []}).status_code == 422
+        assert c.put(f"/users/{uid}/topics", json={"topics": ["nope"]}).status_code == 422
+        assert c.post("/users", json={"name": "V", "topics": ["nope"]}).status_code == 422
+        assert c.put("/users/99999/topics", json={"topics": ["bits"]}).status_code == 404
+
+def test_unselected_prerequisite_does_not_block():
+    with TestClient(app) as c:
+        uid = c.post("/users", json={"name": "W", "topics": ["queues"]}).json()["id"]   # builds on stacks, which is not chosen
+        r = c.get(f"/practice/next?user_id={uid}").json()
+        assert r["concept_id"] == "queues"

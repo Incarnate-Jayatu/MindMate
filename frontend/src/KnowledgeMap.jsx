@@ -29,7 +29,7 @@ function layout(map) {
   };
 }
 
-export default function KnowledgeMap({ map, insights, busy, onPractice, onBack }) {
+export default function KnowledgeMap({ map, insights, busy, onPractice, onAddTopic, onBack }) {
   const rec = insights.recommended;
   const [sel, setSel] = useState(rec?.concept_id ?? map[0]?.concept_id);
   const { pos, width, height } = layout(map);
@@ -85,7 +85,7 @@ export default function KnowledgeMap({ map, insights, busy, onPractice, onBack }
             const isRec = rec?.concept_id === c.concept_id;
             const isSel = sel === c.concept_id;
             return (
-              <g key={c.concept_id} role="button" tabIndex={0} aria-pressed={isSel} aria-label={`${c.name}, ${c.status}`}
+              <g key={c.concept_id} opacity={c.selected === false ? 0.45 : 1} role="button" tabIndex={0} aria-pressed={isSel} aria-label={`${c.name}, ${c.status}`}
                 style={{ cursor: "pointer" }} onClick={() => setSel(c.concept_id)} onKeyDown={(e) => e.key === "Enter" && setSel(c.concept_id)}>
                 <rect x={x + 4} y={y + 4} width={W} height={H} rx="14" fill={isSel ? "#ffe45c" : INK} stroke={INK} strokeWidth="2" />
                 <rect x={x} y={y} width={W} height={H} rx="14" fill={FILL[c.status] ?? FILL.unseen} stroke={INK} strokeWidth="2" />
@@ -104,7 +104,10 @@ export default function KnowledgeMap({ map, insights, busy, onPractice, onBack }
         <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
           {["unseen", "weak", "learning", "mastered"].map((s) => <StatusChip key={s} status={s} />)}
         </div>
-        <p className="mt-2 px-1 text-sm text-pencil">Arrows point from a prerequisite to the topic that builds on it.</p>
+        <p className="mt-2 px-1 text-sm text-pencil">
+          Arrows point from a prerequisite to the topic that builds on it.
+          {map.some((c) => c.selected === false) && " Faded topics are not in your selection. Click one to add it."}
+        </p>
       </section>
 
       {cur && (
@@ -120,7 +123,11 @@ export default function KnowledgeMap({ map, insights, busy, onPractice, onBack }
                 {cur.prereqs.length > 0 && ` · builds on ${cur.prereqs.map((p) => names[p] ?? NAMES[p] ?? p).join(", ")}`}
               </p>
             </div>
-            {cur.status !== "mastered" && <Btn small disabled={busy} onClick={() => onPractice(cur.concept_id)}>Practice</Btn>}
+            {cur.selected === false ? (
+              <Btn small disabled={busy} onClick={() => onAddTopic(cur.concept_id)}>Add to my topics</Btn>
+            ) : (
+              cur.status !== "mastered" && <Btn small disabled={busy} onClick={() => onPractice(cur.concept_id)}>Practice</Btn>
+            )}
           </div>
           <div className="mt-3"><Meter score={cur.score} status={cur.status} /></div>
           {curMis.length > 0 && (

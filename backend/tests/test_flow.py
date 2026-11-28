@@ -7,7 +7,7 @@ def test_flow():
     with TestClient(app) as c:
         uid = c.post("/users", json={"name": "Jay"}).json()["id"]
         diag = c.get("/diagnostic").json()
-        assert len(diag) == 7 and "answer_key" not in diag[0]
+        assert len(diag) == 12 and "answer_key" not in diag[0]
         q = next(x for x in diag if x["concept_id"] == "arrays")
         r = c.post("/attempts", json={"user_id": uid, "question_id": q["id"], "choice": "A"}).json()
         assert not r["correct"] and r["misconception"]["id"] == "arr-partial-init"

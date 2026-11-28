@@ -1,19 +1,23 @@
 from .models import Concept, Question, Attempt, Mastery
-from . import variants
+from . import variants, topics
 
 def _target_difficulty(score: float) -> int:
     return 1 if score < 0.4 else 2 if score < 0.65 else 3
 
 def choose_concept(db, user_id: int):
-    """Returns (concept, status_by_id, score_by_id, open_concepts) or None if everything is mastered."""
-    concepts = db.query(Concept).order_by(Concept.id).all()
+    """Returns (concept, status_by_id, score_by_id, open_concepts) or None if every chosen topic is mastered."""
+    all_concepts = db.query(Concept).order_by(Concept.id).all()
+    sel = topics.selected_ids(db, user_id)
+    chosen = [c for c in all_concepts if sel is None or c.id in sel]
+    chosen_ids = {c.id for c in chosen}
     ms = {m.concept_id: m for m in db.query(Mastery).filter_by(user_id=user_id)}
-    st = {c.id: (ms[c.id].status if c.id in ms else "unseen") for c in concepts}
-    sc = {c.id: (ms[c.id].score if c.id in ms else 0.5) for c in concepts}
-    open_ = [c for c in concepts if st[c.id] != "mastered"]
+    st = {c.id: (ms[c.id].status if c.id in ms else "unseen") for c in all_concepts}
+    sc = {c.id: (ms[c.id].score if c.id in ms else 0.5) for c in all_concepts}
+    open_ = [c for c in chosen if st[c.id] != "mastered"]
     if not open_:
         return None
-    ready = [c for c in open_ if not any(st.get(p) == "weak" for p in c.prereqs)]  # fix weak prerequisites first
+    # fix weak prerequisites first, but only ones the learner chose to practice
+    ready = [c for c in open_ if not any(st.get(p) == "weak" for p in c.prereqs if p in chosen_ids)]
     return min(ready or open_, key=lambda c: sc[c.id]), st, sc, open_
 
 def pick(db, user_id: int, concept_id: str | None = None):

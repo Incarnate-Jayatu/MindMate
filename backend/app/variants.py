@@ -1,10 +1,11 @@
 """Template-based question variants. No AI or API key needed: answers are computed, never guessed."""
 import random
 from .models import Question
-from .seed import NODE_DEF
+import math
+from .seed import NODE_DEF, DN_DEF, BST_DEF
 
 def _prog(defs: str, body: str) -> str:
-    return f"#include <iostream>\n#include <string>\n#include <stack>\n#include <queue>\nusing namespace std;\n{defs}\nint main() {{ {body} }}\n"
+    return f"#include <iostream>\n#include <string>\n#include <stack>\n#include <queue>\n#include <algorithm>\nusing namespace std;\n{defs}\nint main() {{ {body} }}\n"
 
 def _build(rng, concept, diff, prompt, correct, wrongs, extras):
     correct = str(correct)
@@ -193,6 +194,217 @@ def ll_insert(r):
             [(f"{x}{a}{b}", "ll-next-direction"), (f"{a}{x}", "ll-lose-head"), (f"{a}{b}{x}", None)],
             [f"{b}{x}{a}", f"{x}{b}"], _prog(NODE_DEF, code.replace("  ", " ")))
 
+# ---- searching ----
+def search_linear(r):
+    a = r.sample(range(1, 20), 5)
+    if r.random() < 0.3:
+        t, k = r.choice([x for x in range(1, 20) if x not in a]), -1
+    else:
+        k = r.randint(0, 4)
+        t = a[k]
+    code = f"int a[] = {_arr(a)};  int idx = -1;  for (int i = 0; i < 5; i++) if (a[i] == {t}) {{ idx = i; break; }}  cout << idx;"
+    if k >= 0:
+        wrongs, extras = [(k + 1, "search-bounds-off-by-one"), (t, None), (-1, "search-not-found")], [k + 2, k + 3, k + 4]
+    else:
+        wrongs, extras = [(0, "search-not-found"), (5, None), (t, None)], [1, 2, 3]
+    return (NODE_PREFIX_NONE + code + "  Prints?", k, wrongs, extras, _prog("", code.replace("  ", " ")))
+
+NODE_PREFIX_NONE = ""
+
+def search_binary_steps(r):
+    n = r.choice([7, 9])
+    a = sorted(r.sample(range(1, 60), n))
+    k = r.randint(0, n - 1)
+    t = a[k]
+    lo, hi, steps = 0, n - 1, 0
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        steps += 1
+        if a[mid] == t:
+            break
+        if a[mid] < t:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    code = (f"int a[] = {_arr(a)};  int lo = 0, hi = {n - 1}, steps = 0;  while (lo <= hi) {{ int mid = (lo + hi) / 2; steps++; "
+            f"if (a[mid] == {t}) break; if (a[mid] < {t}) lo = mid + 1; else hi = mid - 1; }}  cout << steps;")
+    return (code + "  Prints?", steps,
+            [(k + 1, "search-linear-thinking"), (steps + 1, None), (steps - 1 if steps > 1 else steps + 2, None), (n, "search-linear-thinking")],
+            [steps + 3, steps + 4], _prog("", code.replace("  ", " ")))
+
+def search_binary_unsorted(r):
+    for _ in range(200):
+        a = r.sample(range(1, 30), 5)
+        t = r.choice(a)
+        lo, hi, found = 0, 4, -1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if a[mid] == t:
+                found = mid
+                break
+            if a[mid] < t:
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        if found != a.index(t):
+            break
+    true = a.index(t)
+    code = (f"int a[] = {_arr(a)};  int lo = 0, hi = 4, found = -1;  while (lo <= hi) {{ int mid = (lo + hi) / 2; "
+            f"if (a[mid] == {t}) {{ found = mid; break; }} if (a[mid] < {t}) lo = mid + 1; else hi = mid - 1; }}  cout << found;")
+    return (code + "  Prints?", found,
+            [(true, "search-binary-unsorted"), (true + 1, None), (4, None)], [0, 1, 2, 3], _prog("", code.replace("  ", " ")))
+
+# ---- sorting ----
+def sort_swap(r):
+    x, y = r.sample(range(1, 10), 2)
+    code = f"int a = {x}, b = {y};  a = b;  b = a;  cout << a << b;"
+    return (code + "  Prints?", f"{y}{y}",
+            [(f"{y}{x}", "sort-swap-overwrite"), (f"{x}{y}", None), (f"{x}{x}", None)], [f"{y}{y}0"],
+            _prog("", code.replace("  ", " ")))
+
+def _s(a):
+    return "".join(map(str, a))
+
+def sort_bubble_pass(r):
+    for _ in range(200):
+        a = r.sample(range(1, 10), 4)
+        b = a[:]
+        for j in range(3):
+            if b[j] > b[j + 1]:
+                b[j], b[j + 1] = b[j + 1], b[j]
+        if b != sorted(a) and b != a:
+            break
+    sel = a[:]
+    m = sel.index(min(sel))
+    sel[0], sel[m] = sel[m], sel[0]
+    code = f"int a[] = {_arr(a)};  for (int j = 0; j < 3; j++) if (a[j] > a[j + 1]) swap(a[j], a[j + 1]);  for (int x : a) cout << x;"
+    return (code + "  Prints?", _s(b),
+            [(_s(sorted(a)), "sort-one-pass"), (_s(a), None), (_s(sel), "sort-mixes-algorithms")],
+            [_s(sorted(a, reverse=True)), _s(b[::-1])], _prog("", code.replace("  ", " ")))
+
+def sort_comparisons(r):
+    n = r.randint(4, 6)
+    a = r.sample(range(1, 20), n)
+    c = n * (n - 1) // 2
+    code = (f"int a[] = {_arr(a)};  int c = 0;  for (int i = 0; i < {n - 1}; i++) for (int j = 0; j < {n - 1} - i; j++) "
+            f"{{ c++; if (a[j] > a[j + 1]) swap(a[j], a[j + 1]); }}  cout << c;")
+    return (code + "  Prints?", c,
+            [(n, "sort-count-n"), (n * n, None), ((n - 1) * (n - 1), None)], [c + 1, c + 2, c + 4],
+            _prog("", code.replace("  ", " ")))
+
+# ---- binary search trees ----
+class _Node:
+    def __init__(self, v):
+        self.v, self.l, self.r = v, None, None
+
+def _ins(t, x):
+    if t is None:
+        return _Node(x)
+    if x < t.v:
+        t.l = _ins(t.l, x)
+    else:
+        t.r = _ins(t.r, x)
+    return t
+
+def _tree(vals):
+    root = None
+    for x in vals:
+        root = _ins(root, x)
+    return root
+
+def _height(t):
+    return -1 if t is None else 1 + max(_height(t.l), _height(t.r))
+
+def _pre(t):
+    return "" if t is None else str(t.v) + _pre(t.l) + _pre(t.r)
+
+def bst_left_child(r):
+    a = r.randint(8, 20)
+    smalls = r.sample(range(1, a), 2)
+    big = r.randint(a + 1, 30)
+    rest = smalls + [big]
+    r.shuffle(rest)
+    order = [a] + rest
+    t = _tree(order)
+    left, right = t.l.v, t.r.v
+    other = next(s for s in smalls if s != left)
+    body = f"T* r = nullptr; for (int x : {_arr(order)}) r = ins(r, x); cout << r->l->v;"
+    return (f"Insert {', '.join(map(str, order))} into an empty binary search tree (smaller values go left). What is the value of the left child of the root?",
+            left, [(right, "bst-sides"), (other, "bst-insert-position"), (a, None)], [left + 1, left + 2], _prog(BST_DEF, body))
+
+def bst_inorder(r):
+    for _ in range(100):
+        vals = r.sample(range(1, 10), 5)
+        if vals != sorted(vals):
+            break
+    t = _tree(vals)
+    body = f"T* r = nullptr; for (int x : {_arr(vals)}) r = ins(r, x); inord(r);"
+    return (f"Insert {', '.join(map(str, vals))} into an empty binary search tree. What does an in-order traversal (left, node, right) print?",
+            _s(sorted(vals)), [(_s(vals), "bst-inorder-order"), (_s(sorted(vals, reverse=True)), "bst-sides"), (_pre(t), None)],
+            [_s(vals[::-1]), _s(sorted(vals)[1:] + sorted(vals)[:1]), _s(vals[1:] + vals[:1]), _s(sorted(vals[:2]) + sorted(vals[2:], reverse=True))],
+            _prog(BST_DEF, body))
+
+def bst_height(r):
+    vals = r.sample(range(1, 30), 6)
+    h = _height(_tree(vals))
+    body = f"T* r = nullptr; for (int x : {_arr(vals)}) r = ins(r, x); cout << ht(r);"
+    return (f"Insert {', '.join(map(str, vals))} into an empty binary search tree. What is its height (edges on the longest path from the root to a leaf)?",
+            h, [(h + 1, "bst-height-off"), (h - 1 if h > 0 else h + 2, "bst-height-off"), (int(math.log2(6)), "bst-always-balanced")],
+            [h + 2, 6], _prog(BST_DEF, body))
+
+# ---- bit manipulation ----
+def bits_ops(r):
+    a, b = r.sample(range(1, 16), 2)
+    op = r.choice(["&", "|", "^"])
+    res = {"&": a & b, "|": a | b, "^": a ^ b}
+    wrong = {"&": [(res["|"], "bit-and-or"), (res["^"], "bit-xor-meaning")],
+             "|": [(res["&"], "bit-and-or"), (res["^"], "bit-xor-meaning")],
+             "^": [(res["|"], "bit-xor-meaning"), (res["&"], "bit-and-or")]}[op]
+    code = f"cout << ({a} {op} {b});"
+    return (code + "  Prints?", res[op], wrong + [(a + b, None)], [res[op] + 1, res[op] + 2, res[op] + 4], _prog("", code))
+
+def bits_shift(r):
+    x, k, op = r.randint(2, 40), r.randint(1, 3), r.choice(["<<", ">>"])
+    c = x << k if op == "<<" else x >> k
+    opposite = x >> k if op == "<<" else x << k
+    code = f"cout << ({x} {op} {k});"
+    return (code + "  Prints?", c, [(opposite, "bit-shift-direction"), (x * k if op == "<<" else x // k, None)],
+            [c + 1, c + 2, c * 2 + 1], _prog("", code))
+
+def bits_testbit(r):
+    n, p = r.randint(5, 60), r.randint(0, 3)
+    c = (n >> p) & 1
+    code = f"int n = {n};  cout << ((n >> {p}) & 1);"
+    return (code + "  Prints?", c,
+            [((n >> (p + 1)) & 1, "bit-position-from-1"), (n >> p, None), (n & 1, None), (n & (1 << p), None)], [2, 3, 5, 7],
+            _prog("", code.replace("  ", " ")))
+
+# ---- doubly linked lists ----
+def dll_back(r):
+    v = r.sample(range(1, 10), 3)
+    code = (f"DNode* a = new DNode{{{v[0]}, nullptr, nullptr}};  DNode* b = new DNode{{{v[1]}, a, nullptr}};  "
+            f"DNode* c = new DNode{{{v[2]}, b, nullptr}};  a->next = b;  b->next = c;  cout << c->prev->v;")
+    return (DN_DEF + "  " + code + "  Prints?", v[1], [(v[2], "dll-direction"), (v[0], None), (sum(v), None)],
+            [v[1] + 10, v[1] + 11], _prog(DN_DEF, code.replace("  ", " ")))
+
+def dll_walk_back(r):
+    v = r.sample(range(1, 10), 3)
+    rev = _s(v[::-1])
+    code = (f"DNode* a = new DNode{{{v[0]}, nullptr, nullptr}};  DNode* b = new DNode{{{v[1]}, a, nullptr}};  "
+            f"DNode* c = new DNode{{{v[2]}, b, nullptr}};  a->next = b;  b->next = c;  "
+            f"for (DNode* p = c; p != nullptr; p = p->prev) cout << p->v;")
+    return (DN_DEF + "  " + code + "  Prints?", rev,
+            [(_s(v), "dll-direction"), (rev[:-1], "dll-null-ends"), (rev[0], "dll-forgot-prev")], [rev[1:], _s(v[1:])],
+            _prog(DN_DEF, code.replace("  ", " ")))
+
+def dll_insert(r):
+    a, c, x = r.sample(range(1, 10), 3)
+    code = (f"DNode* a = new DNode{{{a}, nullptr, nullptr}};  DNode* c = new DNode{{{c}, a, nullptr}};  a->next = c;  "
+            f"DNode* b = new DNode{{{x}, a, c}};  a->next = b;  c->prev = b;  cout << a->next->v << c->prev->v;")
+    return (DN_DEF + "  " + code + "  Prints?", f"{x}{x}",
+            [(f"{x}{a}", "dll-forgot-prev"), (f"{a}{x}", None), (f"{x}{c}", None)], [f"{c}{x}", f"{a}{c}"],
+            _prog(DN_DEF, code.replace("  ", " ")))
+
 TEMPLATES = {
     ("arrays", 1): arrays_index, ("arrays", 2): arrays_every_other, ("arrays", 3): arrays_pass,
     ("loops", 1): loops_count, ("loops", 2): loops_sum, ("loops", 3): loops_nested,
@@ -201,6 +413,11 @@ TEMPLATES = {
     ("stacks", 1): stack_top, ("stacks", 2): stack_pop_top, ("stacks", 3): stack_reverse,
     ("queues", 1): queue_front, ("queues", 2): queue_pop_front, ("queues", 3): queue_rotate,
     ("linkedlist", 1): ll_next, ("linkedlist", 2): ll_sum_k, ("linkedlist", 3): ll_insert,
+    ("searching", 1): search_linear, ("searching", 2): search_binary_steps, ("searching", 3): search_binary_unsorted,
+    ("sorting", 1): sort_swap, ("sorting", 2): sort_bubble_pass, ("sorting", 3): sort_comparisons,
+    ("bst", 1): bst_left_child, ("bst", 2): bst_inorder, ("bst", 3): bst_height,
+    ("bits", 1): bits_ops, ("bits", 2): bits_shift, ("bits", 3): bits_testbit,
+    ("dll", 1): dll_back, ("dll", 2): dll_walk_back, ("dll", 3): dll_insert,
 }
 
 def make(concept_id, difficulty, rng):

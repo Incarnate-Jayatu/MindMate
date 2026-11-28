@@ -49,3 +49,11 @@ class Mastery(Base):
     score: Mapped[float] = mapped_column(Float, default=0.5)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(10), default="unseen")
+
+class UserTopic(Base):
+    """Topics a learner chose to practice. A learner with no rows here practices every topic."""
+    __tablename__ = "user_topics"
+    __table_args__ = (UniqueConstraint("user_id", "concept_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    concept_id: Mapped[str] = mapped_column(ForeignKey("concepts.id"))
